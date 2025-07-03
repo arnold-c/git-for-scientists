@@ -40,3 +40,81 @@ git branch -a # list all branches in the original (remote) repository
 # git checkout other-branch-name
 # git push -u origin other-branch-name
 ```
+
+## Deleting Files from Git History
+
+Occasionally you will make a commit that includes a file you didn't mean to e.g., a _**.env**_ file that contains API keys or secrets.
+If you realize your mistake before you've pushed to the repository, then it's a generally a pretty easy fix, though how easy depends on if you have made any commits since the bad commit.
+
+### Most Recent (Local) Commit {#most-recent-local-commit}
+
+:::{.callout-important}
+
+This approach assumes that the addition of the file is only thing that happens in the commit.
+If this is not true, follow the interactive rebase workflow laid out in [the next section](#few-local-commits)
+
+:::
+
+Simply reset the `HEAD` to the previous comment.
+
+```bash
+git reset --<type> HEAD~1 #note the tilde, not hyphen
+```
+
+Here `<type>` should be replaced by one of `soft`, `mixed`, or `hard`, depending on whether you would to keep the changes in the commit.
+Note that you can replace `HEAD~1` (which points to the commit 1 before the `HEAD`, or the most recent commit position) with a SHA-1 commit hash (shown in `git log --oneline`)
+See [this excellent documentation](https://www.atlassian.com/git/tutorials/undoing-changes/git-reset) by Atlassian on the various methods you can use to reset the working tree, as well as a visual description to help gain an understanding of the way Git handles these requests.
+You probably want to use `--mixed` (the default, in case you forget to added the type to the `git reset` command) as you added the secrets to your project for a reason.
+
+You will then want to add the file to your _**.gitignore**_ file so Git doesn't track it in the future.
+
+### A Few (Local) Commits Deep {#few-local-commits}
+
+If, however, you have made a number of changes and commits between accidentally including a file in a commit and when you notice your mistake, you can use an **interactive rebase**.
+An interactive rebase allows you to go back to a specific commit and then **replay** them in sequence, as well as making modifications to specific commits as you wish.
+We will use it to go back to the troublesome commit that includes our file erroneously, remove the file from the commit, and then continue onwards.
+
+```bash
+git rebase -i 2967e6d #You could also use HEAD~4 to show the HEAD and 3 prior commits
+```
+
+This will provide you with a list of commits between the commit you are choosing as your starting point (the troublesome one) and the `HEAD`.
+
+```bash
+pick 2967e6d # Render after making collaboration changes -- HEAD~3
+pick c40f66d # Add description of merge collaborations -- HEAD~2
+pick 6dc271f # Add todos and delete old merge conflict page -- HEAD~1
+pick 1b3ab13 # Add description of git reset to misc -- HEAD
+```
+
+Then you will want to change one of the `pick` to `edit` i.e., the first one in the list if probably the one with the problematic file commit.
+
+```bash
+edit 2967e6d # Render after making collaboration changes -- HEAD~3
+pick c40f66d # Add description of merge collaborations -- HEAD~2
+pick 6dc271f # Add todos and delete old merge conflict page -- HEAD~1
+pick 1b3ab13 # Add description of git reset to misc -- HEAD
+```
+
+Saving this will put you back into the terminal and start the rebase.
+You can then use `git rm <file>` to delete the file from the git history.
+
+Then to replay the next, OK, commits using the following commands
+
+```bash
+git commit --amend --no-edit  # Update the commit without changing the message
+git rebase --continue         # Move to the next commit
+```
+
+You will then probably want to add that file into the _**.gitignore**_ to prevent accidentally tracking it in the future.
+
+If you want to see a visual description of the interactive rebase, see [this article](https://www.atlassian.com/git/tutorials/merging-vs-rebasing) by Atlassian.
+
+:::{.callout-note hide="true"}
+
+You could also use `git cherry-pick` to move the problematic commit to the `HEAD` and then follow the [instructions above](#most-recent-local-commit) to apply `git reset`.
+This has the same assumptions surrounding the lack of other files being involved in the commit, and that no later commits also include that file.
+Read more about how `cherry-pick` works [here](https://www.atlassian.com/git/tutorials/cherry-pick)
+
+:::
+
