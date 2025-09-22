@@ -22,13 +22,12 @@ jobs:
           
       - name: Render Quarto Project
         uses: quarto-dev/quarto-actions/render@v2
-      
-      - name: Publish
-        uses: cloudflare/pages-action@1
+        
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: psu-intro-to-git
-          directory: '_book'
+          command: pages deploy _site --project-name=git-for-scientists
+          # Optional: Enable this if you want to have GitHub Deployments triggered
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-
