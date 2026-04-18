@@ -123,10 +123,13 @@ Read more about how `cherry-pick` works [here](https://www.atlassian.com/git/tut
 If, unfortunately, you only notice the mistake after you have already pushed the file to your remote, you will need to do some destructive actions.
 This will require you notifying your colleagues as they will need to **fetch** the updates you make so you are all working on a common version of the code, and potentially dealing with merge conflicts introduced.
 
-There are 2 main ways this can be done:
+There are 4 main ways this can be done:
 
-1. [`git filter-branch`](https://git-scm.com/docs/git-filter-branch)
-2. [`bfg`](https://rtyley.github.io/bfg-repo-cleaner/)
+1. An interactive rebase, as [described above](#few-local-commits) followed by `git push --force` to overwrite the remote history
+2. [`git filter-branch`](https://git-scm.com/docs/git-filter-branch)
+3. [`bfg`](https://rtyley.github.io/bfg-repo-cleaner/)
+4. [`git filter-repo`]
+
 
 We are going to use `bfg` as it's quicker for larger files, and simpler, so you (and I) are less likely to mess up irrevocably.
 
