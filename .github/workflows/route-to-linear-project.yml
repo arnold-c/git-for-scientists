@@ -1,0 +1,95 @@
+name: Route Linear Issue to Project
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  route-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Linear's Native Sync
+        # Give Linear's webhook a head start to actually create the issue first
+        run: sleep 10 
+
+      - name: Update Linear Issue Project
+        uses: actions/github-script@v7
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
+        with:
+          script: |
+            const linearApiKey = process.env.LINEAR_API_KEY;
+            const teamId = process.env.LINEAR_TEAM_ID;
+            const projectId = process.env.LINEAR_PROJECT_ID;
+            const issueTitle = context.payload.issue.title;
+
+            // 1. Query Linear for the most recent issues in your Team
+            const searchQuery = `
+              query FindIssue($teamId: String!) {
+                team(id: $teamId) {
+                  issues(first: 10, orderBy: createdAt) {
+                    nodes {
+                      id
+                      title
+                    }
+                  }
+                }
+              }
+            `;
+
+            const searchResponse = await fetch('https://api.linear.app/graphql', {
+              method: 'POST',
+              headers: {
+                'Authorization': linearApiKey,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: searchQuery, variables: { teamId } })
+            });
+
+            const searchData = await searchResponse.json();
+            const issues = searchData.data.team.issues.nodes;
+            
+            // Find the Linear issue that exactly matches the GitHub issue title
+            const linearIssue = issues.find(i => i.title === issueTitle);
+
+            if (!linearIssue) {
+              console.log(`Could not find a Linear issue titled "${issueTitle}". It may not have synced yet.`);
+              return;
+            }
+
+            console.log(`Found matching Linear Issue ID: ${linearIssue.id}`);
+
+            // 2. Mutate the Linear issue to attach it to the correct Project
+            const updateMutation = `
+              mutation UpdateIssueProject($id: String!, $projectId: String!) {
+                issueUpdate(id: $id, input: { projectId: $projectId }) {
+                  success
+                  issue {
+                    id
+                    project { name }
+                  }
+                }
+              }
+            `;
+
+            const updateResponse = await fetch('https://api.linear.app/graphql', {
+              method: 'POST',
+              headers: {
+                'Authorization': linearApiKey,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                query: updateMutation,
+                variables: { id: linearIssue.id, projectId: projectId }
+              })
+            });
+
+            const updateData = await updateResponse.json();
+            
+            if (updateData.data?.issueUpdate?.success) {
+              console.log(`Successfully routed to project: ${updateData.data.issueUpdate.issue.project.name}`);
+            } else {
+              console.error("Failed to update Linear issue:", JSON.stringify(updateData));
+            }
